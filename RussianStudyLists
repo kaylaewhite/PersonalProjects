@@ -1,0 +1,61 @@
+# usage: python3 NameCrawler.py [output file name].txt
+
+# URLs:
+# For page 1: http://masterrussian.com/vocabulary/common_verbs.htm
+# For subsequent pages: http://masterrussian.com/vocabulary/common_verbs_[2-7].htm
+import requests
+import sys
+from bs4 import BeautifulSoup
+
+words = []
+
+
+def getUrl(page: int) -> str:
+    if page == 1:
+        return 'http://masterrussian.com/vocabulary/common_verbs.htm'
+    else:
+        return f'http://masterrussian.com/vocabulary/common_verbs_{page}.htm'
+
+
+def readFromUrl(url: str):
+    print(f'Fetching from {url}')
+
+    resp = requests.get(url)
+
+    # If this returns false, we got an invalid response code.
+    if resp.ok:
+        # See here for why we have to check for encoding:
+        # https://stackoverflow.com/questions/44203397/python-requests-get-returns-improperly-decoded-text-instead-of-utf-8
+        resp.encoding = resp.apparent_encoding
+        content = BeautifulSoup(resp.text, 'html.parser')
+
+        print("Content fetched; parsing out words")
+        matching = content.find_all("td", {"class": "word"})
+        for word in matching:
+            # There may be a hyperlink to the word definition, so check for an anchor tag
+            text = ""
+            if word.a:
+                text = word.a.string
+            else:
+                text = word.string
+            if text != "None":  # This can happened with malformed content
+                words.append(text)
+    else:
+        print("No content retrieved")
+
+
+for page in range(1, 8):
+    # First, grab the content
+    url = getUrl(page)
+    readFromUrl(url)
+
+filename = sys.argv[1]
+print(f'Writing to {filename}')
+verbs = open(filename, "w")
+for word in words:
+    verbs.write(str(word))
+    verbs.write("\n")
+
+verbs.close()
+
+print(f'Done writing to {filename}')
